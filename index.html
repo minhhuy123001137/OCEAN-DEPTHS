@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="OCEAN DEPTHS - Khám phá thế giới cá mập và đại dương trong không gian 3D điện ảnh tương tác." />
+  <title>OCEAN DEPTHS — Khám Phá Thế Giới Cá Mập 3D</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans thanh thoát & Syne tinh tế -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700;800&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Thư viện Three.js, GLTFLoader và GSAP chạy offline & qua server -->
+  <script src="libs/three.min.js"></script>
+  <script src="libs/GLTFLoader.js"></script>
+  <script src="libs/gsap.min.js"></script>
+  <script src="libs/ScrollTrigger.min.js"></script>
+
+  <!-- Dữ liệu mô hình 3D cá mập & đá nhị phân nhúng (chạy mượt mà không lỗi CORS) -->
+  <script src="models/shark/shark_model_data.js"></script>
+  <script src="models/rock_data.js"></script>
+</head>
+<body>
+
+  <!-- Màn hình chờ tải 3D (Sonar Ring Loader) -->
+  <div id="loading-screen" class="loading-screen" aria-live="polite">
+    <div class="loader-content">
+      <div class="loader-sonar">
+        <div class="sonar-ring ring-1"></div>
+        <div class="sonar-ring ring-2"></div>
+        <div class="sonar-ring ring-3"></div>
+        <div class="sonar-core">
+          <svg viewBox="0 0 24 24" class="sonar-icon" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+        </div>
+      </div>
+      <p class="loader-brand">OCEAN DEPTHS</p>
+      <p class="loader-status" id="loading-status">Đang khởi tạo không gian đại dương...</p>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="loading-progress-bar"></div>
+      </div>
+      <span class="progress-percent" id="loading-percent">0%</span>
+    </div>
+  </div>
+
+  <!-- Thông báo fallback nếu WebGL gặp sự cố -->
+  <div id="fallback-banner" class="fallback-banner" style="display: none;" role="alert">
+    <div class="fallback-box">
+      <span class="fallback-icon">⚠️</span>
+      <div class="fallback-text">
+        <h3>Chế độ hiển thị tương thích</h3>
+        <p id="fallback-message">WebGL không khả dụng trên trình duyệt của bạn. Nội dung website vẫn hiển thị đầy đủ bên dưới.</p>
+      </div>
+      <button id="fallback-close" class="fallback-btn" type="button">Đã hiểu</button>
+    </div>
+  </div>
+
+  <!-- Canvas WebGL 3D xuyên suốt toàn trang -->
+  <canvas id="webgl-canvas" class="webgl-canvas" aria-hidden="true"></canvas>
+
+  <!-- Lớp phủ màu nền động chuyển sắc theo cuộn -->
+  <div id="ambient-backdrop" class="ambient-backdrop" aria-hidden="true"></div>
+  <div class="cinematic-vignette" aria-hidden="true"></div>
+
+  <!-- Header thanh thoát, tối giản theo mẫu video tham chiếu -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#hero" class="brand" aria-label="Ocean Depths trang chủ">
+        <span class="brand-dot"></span>
+        <span class="brand-name">OCEAN DEPTHS</span>
+      </a>
+
+      <nav class="nav-menu" aria-label="Thanh điều hướng">
+        <a href="#hero" class="nav-item active" data-target="hero">Mở đầu</a>
+        <a href="#senses" class="nav-item" data-target="senses">Giác quan</a>
+        <a href="#species" class="nav-item" data-target="species">Sinh vật</a>
+        <a href="#conserve" class="nav-item" data-target="conserve">Bảo tồn</a>
+      </nav>
+
+      <div class="header-actions">
+        <button id="credits-toggle-btn" class="btn-pill btn-pill-outline" type="button">
+          <span>Bản quyền 3D</span>
+        </button>
+        <a href="#senses" class="btn-pill btn-pill-primary">
+          <span>Khám phá</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Khung nội dung chính cuộn dọc -->
+  <main class="content-scroll">
+
+    <!-- PHẦN 1: HERO SECTION (Hoàng hôn siêu thực đào/tím + Mặt nước phản chiếu) -->
+    <section id="hero" class="section section-hero" aria-label="Màn mở đầu">
+      <div class="hero-container">
+        <!-- Khối chữ đặt gọn ở góc trái phía dưới theo đúng video tham chiếu -->
+        <div class="hero-content">
+          <div class="sub-pill">
+            <span class="pill-glow"></span>
+            <span>HÀNH TRÌNH ĐIỆN ẢNH 3D</span>
+          </div>
+
+          <h1 class="hero-title">
+            Ocean Depths<br />
+            <span class="title-sub-gradient">Khám phá thế giới cá mập</span>
+          </h1>
+
+          <p class="hero-desc">
+            Đắm chìm vào không gian đại dương siêu thực, khám phá cơ chế sinh học hoàn mỹ và chuyển động uy dũng của loài săn mồi đỉnh cao.
+          </p>
+
+          <div class="hero-actions">
+            <button id="btn-explore" class="btn-cta btn-cta-primary" type="button">
+              <span>Bắt đầu lặn</span>
+              <svg viewBox="0 0 24 24" class="cta-arrow" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M19 12l-7 7-7-7" />
+              </svg>
+            </button>
+            <button id="btn-about" class="btn-cta btn-cta-glass" type="button">
+              <span>Tìm hiểu thêm</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Thẻ gợi ý cuộn góc phải dưới như trong video -->
+        <div class="scroll-card">
+          <div class="scroll-card-text">
+            <span>Cuộn chuột & lặn sâu</span>
+            <small>Khám phá chiều sâu đại dương</small>
+          </div>
+          <div class="scroll-mouse-anim">
+            <div class="mouse-roller"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PHẦN 2: CÁC KHỐI SO LE (Giác quan & Cơ chế bơi - Vực thẳm xanh tím đậm) -->
+    <section id="senses" class="section section-senses" aria-label="Giác quan và chuyển động">
+      <div class="section-container">
+        
+        <div class="section-badge">
+          <span>KỸ THUẬT TIẾN HÓA ĐỈNH CAO</span>
+        </div>
+
+        <h2 class="section-heading">
+          Giác quan & Cơ chế bơi<br />
+          <span class="heading-gradient-cyan">Hoàn hảo qua 400 triệu năm</span>
+        </h2>
+
+        <!-- Khối so le 1: Giác quan điện trường -->
+        <div class="feature-block feature-left">
+          <div class="feature-card">
+            <div class="card-num">01</div>
+            <h3 class="card-title">Giác quan điện trường (Ampullae of Lorenzini)</h3>
+            <p class="card-desc">
+              Mạng lưới lỗ nhỏ quanh mũi và hàm cá mập chứa đầy gel dẫn điện, có khả năng phát hiện điện trường sinh học siêu yếu phát ra từ nhịp tim của con mồi dù bị vùi sâu dưới lớp cát biển.
+            </p>
+            <div class="card-tags">
+              <span class="tag">Điện trường sinh học</span>
+              <span class="tag">Độ nhạy cực đại</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Khối so le 2: Thủy động học & Da vảy gai -->
+        <div class="feature-block feature-right">
+          <div class="feature-card">
+            <div class="card-num">02</div>
+            <h3 class="card-title">Thân ngư lôi & Lớp da vảy gai (Dermal Denticles)</h3>
+            <p class="card-desc">
+              Bề mặt da cá mập được bao phủ bởi hàng triệu vảy gai li ti hình chữ V, triệt tiêu lực cản dòng xoáy và giảm tiếng ồn khi xé nước, cho phép cá mập lướt đi trong tĩnh lặng tuyệt đối.
+            </p>
+            <div class="card-tags">
+              <span class="tag">Khí động học nước</span>
+              <span class="tag">Vảy gai siêu trơn</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Khối so le 3: Thính giác & Đường bên -->
+        <div class="feature-block feature-left">
+          <div class="feature-card">
+            <div class="card-num">03</div>
+            <h3 class="card-title">Hệ thống đường bên & Thính giác tần số thấp</h3>
+            <p class="card-desc">
+              Hệ thống đường bên cảm biến rung động cơ học dọc sống lưng kết hợp tai trong có thể thu nhận âm thanh dao động ở khoảng cách hàng cây số, định vị chuẩn xác mục tiêu giữa lòng đại dương tăm tối.
+            </p>
+            <div class="card-tags">
+              <span class="tag">Định vị sóng âm</span>
+              <span class="tag">Phản xạ tức thì</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PHẦN 3: BỘ THẺ SINH VẬT (Showcase Cards phỏng theo bố cục giữa video) -->
+    <section id="species" class="section section-species" aria-label="Thế giới sinh vật đại dương">
+      <div class="section-container">
+        
+        <div class="section-badge badge-teal">
+          <span>ĐA DẠNG SINH HỌC BIỂN KHÔI</span>
+        </div>
+
+        <h2 class="section-heading">
+          Những loài cá mập tiêu biểu<br />
+          <span class="heading-gradient-teal">Người gác cổng thủy quyển</span>
+        </h2>
+
+        <div class="species-grid">
+          <!-- Card 1 -->
+          <article class="species-card card-glow-cyan">
+            <div class="species-header">
+              <span class="species-icon">🦈</span>
+              <span class="species-class">Lamnidae</span>
+            </div>
+            <h3 class="species-name">Cá mập trắng lớn</h3>
+            <p class="species-latin">Carcharodon carcharias</p>
+            <p class="species-desc">
+              Loài săn mồi đầu bảng nổi tiếng, duy trì tính ổn định của các quần thể sinh vật biển ven bờ và hải đảo ôn đới toàn cầu.
+            </p>
+            <div class="species-metrics">
+              <div class="metric">
+                <span class="metric-label">Tốc độ nước rút</span>
+                <span class="metric-val">~56 km/h</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Độ sâu hoạt động</span>
+                <span class="metric-val">0 – 1.200 m</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 2 -->
+          <article class="species-card card-glow-purple">
+            <div class="species-header">
+              <span class="species-icon">🌊</span>
+              <span class="species-class">Sphyrnidae</span>
+            </div>
+            <h3 class="species-name">Cá mập đầu búa</h3>
+            <p class="species-latin">Sphyrna mokarran</p>
+            <p class="species-desc">
+              Phần đầu mở rộng như chiếc búa giúp tăng tối đa góc nhìn toàn cảnh 360 độ và gia tăng diện tích cảm biến điện trường.
+            </p>
+            <div class="species-metrics">
+              <div class="metric">
+                <span class="metric-label">Góc quan sát</span>
+                <span class="metric-val">360° thị giác</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Tập tính</span>
+                <span class="metric-val">Di cư bầy đàn</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 3 -->
+          <article class="species-card card-glow-emerald">
+            <div class="species-header">
+              <span class="species-icon">🐋</span>
+              <span class="species-class">Rhincodontidae</span>
+            </div>
+            <h3 class="species-name">Cá mập voi</h3>
+            <p class="species-latin">Rhincodon typus</p>
+            <p class="species-desc">
+              Loài cá lớn nhất còn tồn tại trên Trái Đất; kẻ khổng lồ hiền lành ăn sinh vật phù du và điều hòa năng lượng tầng mặt biển nhiệt đới.
+            </p>
+            <div class="species-metrics">
+              <div class="metric">
+                <span class="metric-label">Thức ăn chính</span>
+                <span class="metric-val">Sinh vật phù du</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Tính khí</span>
+                <span class="metric-val">Cực kỳ hiền hòa</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PHẦN 4: CẢNH KẾT (Xanh ngọc dưới nước + Tia sáng mặt trời & Lời kêu gọi) -->
+    <section id="conserve" class="section section-conserve" aria-label="Bảo tồn đại dương">
+      <div class="section-container text-center">
+        
+        <div class="section-badge badge-amber">
+          <span>SỨ MỆNH TƯƠNG LAI</span>
+        </div>
+
+        <h2 class="conserve-heading">
+          Cùng bảo vệ đại dương<br />
+          <span class="heading-gradient-amber">Giữ vững nhịp đập của sự sống</span>
+        </h2>
+
+        <p class="conserve-desc">
+          Cá mập không phải là quái vật đại dương; chúng là những mắt xích tối quan trọng giữ cho chuỗi thức ăn không bị sụp đổ. Hàng năm, nạn đánh bắt quá mức đe dọa sinh mệnh của hơn 100 triệu cá thể. Bảo tồn cá mập là gìn giữ màu xanh và tương lai của hành tinh.
+        </p>
+
+        <div class="conserve-actions">
+          <button id="btn-back-top" class="btn-cta btn-cta-primary" type="button">
+            <svg viewBox="0 0 24 24" class="cta-arrow up" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+            <span>Trở về đỉnh đại dương</span>
+          </button>
+          <button id="btn-open-license" class="btn-cta btn-cta-glass" type="button">
+            <span>Thông tin bản quyền mô hình</span>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Bản quyền Mô hình 3D (CC-BY 4.0) -->
+  <aside id="credits-modal" class="credits-modal" aria-hidden="true" role="dialog" aria-labelledby="credits-title">
+    <div class="credits-backdrop" id="credits-overlay"></div>
+    <div class="credits-dialog">
+      <div class="credits-header">
+        <h4 id="credits-title">Bản quyền & Ghi công tài nguyên</h4>
+        <button id="credits-close-btn" class="credits-close" type="button" aria-label="Đóng">&times;</button>
+      </div>
+      <div class="credits-body">
+        <p><strong>Dự án:</strong> OCEAN DEPTHS — Bài thử nghiệm cuối kì môn Thiết kế Web.</p>
+        <div class="license-box">
+          <p class="license-name">🦈 Mô hình 3D: Animated Swimming Great White Shark Loop</p>
+          <p><strong>Tác giả:</strong> LasquetiSpice (Sketchfab)</p>
+          <p><strong>Giấy phép:</strong> Creative Commons Attribution (CC-BY 4.0)</p>
+          <blockquote class="license-quote">
+            "This work is based on 'Animated Swimming Great White Shark Loop' by LasquetiSpice licensed under CC-BY-4.0."
+          </blockquote>
+          <div class="license-links">
+            <a href="https://sketchfab.com/3d-models/animated-swimming-great-white-shark-loop-297ed35c6a5f43749b0ae189d991a3f1" target="_blank" rel="noopener noreferrer">Trang Sketchfab gốc ↗</a>
+            <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">Giấy phép CC-BY 4.0 ↗</a>
+          </div>
+        </div>
+
+        <div class="license-box">
+          <p class="license-name">🌊 Hiệu ứng sóng nước & Caustics: ThreeJS Caustics</p>
+          <p><strong>Tác giả:</strong> Martin Renou (2020)</p>
+          <p><strong>Giấy phép:</strong> BSD 3-Clause License</p>
+          <p><strong>Mô hình đá ngầm:</strong> Rocks Low Poly Starter Pack của Dreyx (Sketchfab, CC-BY 4.0)</p>
+          <div class="license-links">
+            <a href="https://github.com/martinRenou/threejs-caustics" target="_blank" rel="noopener noreferrer">Kho mã nguồn ThreeJS Caustics ↗</a>
+            <a href="https://medium.com/@martinRenou/real-time-rendering-of-water-caustics-59cda1d74aa" target="_blank" rel="noopener noreferrer">Bài báo giải thuật Caustics ↗</a>
+          </div>
+        </div>
+        <p class="license-tech"><strong>Công nghệ:</strong> Three.js (r128), WebGL Caustics Shader Pipeline, GSAP ScrollTrigger, Vite, JavaScript thuần.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Script chính của ứng dụng -->
+  <script src="script.js"></script>
+</body>
+</html>
