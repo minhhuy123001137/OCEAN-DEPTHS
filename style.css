@@ -592,18 +592,21 @@ body {
 
 .heading-gradient-cyan {
   background: linear-gradient(135deg, #38bdf8, #818cf8);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .heading-gradient-teal {
   background: linear-gradient(135deg, #2dd4bf, #38bdf8);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .heading-gradient-amber {
   background: linear-gradient(135deg, #fbbf24, #f472b6);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
