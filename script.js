@@ -1570,7 +1570,7 @@ swim.quaternion.slerp(pointer.turnTarget.quaternion, turnBlend);
     }
   }
 
-  if (document.readyState === 'loading') {
+if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       new OceanDepthsApp();
     });

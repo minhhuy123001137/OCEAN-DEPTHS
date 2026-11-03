@@ -10,9 +10,7 @@ Dự án thử nghiệm website 3D tương tác theo cuộn cho bài cuối kì 
   - Mặt nước gợn sóng phía trên với khúc xạ và ánh sáng mặt trời chiếu xuyên qua.
   - Vệt sáng khúc xạ chuyển động (Water Caustics) nhảy múa trên nền cát nhấp nhô và cụm đá ngầm.
   - Sắc màu đại dương chuyển dần từ xanh ngọc bích ven bờ sang xanh vực thẳm sâu lắng (`#02121e`).
-
 ---
-
 ## 🌊 Hiệu ứng sóng nước & Caustics (ThreeJS Caustics Pipeline)
 - **Tái sử dụng giải thuật ThreeJS Caustics (Martin Renou):**
   - **Mô phỏng sóng nước (`WaterSimulation`):** Sử dụng hệ phương trình sóng chất lỏng với kỹ thuật ping-pong RenderTarget tính toán độ cao và vector pháp tuyến.
