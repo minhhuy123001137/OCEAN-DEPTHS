@@ -843,6 +843,86 @@
      * - Thay đổi chiều sâu (Z) và độ cao (Y) lượn sóng tự nhiên, nghiêng thân (banking) khi vào cua.
      * - Hoạt động độc lập bằng delta time, không bị ảnh hưởng bởi GSAP ScrollTrigger ở nhóm cha sharkPivot.
      */
+    updateSharkMovement(delta, elapsedTime) {
+      const swim = this.sharkSwimGroup;
+      const pointer = this.sharkPointer;
+      if (!swim || !pointer) {
+        this.updateSharkPatrol(delta, elapsedTime);
+        return;
+      }
+
+      const rect = pointer.hero.getBoundingClientRect();
+      const canvas = this.renderer.domElement.getBoundingClientRect();
+      if (performance.now() - pointer.lastMovedAt < 250 &&
+          pointer.x >= rect.left && pointer.x < rect.right &&
+          pointer.y >= rect.top && pointer.y < rect.bottom &&
+          canvas.width && canvas.height) {
+        this.camera.updateMatrixWorld();
+        this.sharkPivot.updateMatrixWorld(true);
+        this.camera.getWorldDirection(pointer.plane.normal);
+        this.sharkPivot.getWorldPosition(pointer.target);
+        pointer.plane.setFromNormalAndCoplanarPoint(pointer.plane.normal, pointer.target);
+        pointer.ndc.set(
+          2 * (pointer.x - canvas.left) / canvas.width - 1,
+          1 - 2 * (pointer.y - canvas.top) / canvas.height
+        );
+        pointer.ray.setFromCamera(pointer.ndc, this.camera);
+        if (pointer.ray.ray.intersectPlane(pointer.plane, pointer.target)) {
+          this.sharkPivot.worldToLocal(pointer.target);
+          const dx = pointer.target.x - swim.position.x;
+          const dy = pointer.target.y - swim.position.y;
+          const dz = pointer.target.z - swim.position.z;
+          const distance = Math.hypot(dx, dy, dz);
+          if (distance > 0.035) {
+            const horizontal = Math.hypot(dx, dz);
+            if (horizontal > 0.01) pointer.yaw = Math.atan2(-dz, dx);
+            if (!pointer.turnTarget) {
+  pointer.turnTarget = new THREE.Object3D();
+}
+
+const pitch = THREE.MathUtils.clamp(
+  Math.atan2(dy, horizontal), -1.2, 1.2
+);
+
+pointer.turnTarget.rotation.set(0, pointer.yaw, 0);
+pointer.turnTarget.rotateZ(pitch);
+pointer.turnTarget.rotateY(1.36);
+
+const turnBlend = 1 - Math.exp(-10 * delta);
+swim.quaternion.slerp(pointer.turnTarget.quaternion, turnBlend);
+
+            // Giới hạn vị trí thân cá, vẫn hướng đầu về điểm chuột thực tế.
+            const isMobile = window.innerWidth < 768;
+            const leftLimit = isMobile ? -0.75 : -3.5;
+            const rightLimit = isMobile ? 0.55 : 1.45;
+
+            pointer.target.x = THREE.MathUtils.clamp(
+            pointer.target.x, leftLimit, rightLimit
+            );
+            pointer.target.y = THREE.MathUtils.clamp(pointer.target.y, -0.9, 0.9);
+            pointer.target.z = THREE.MathUtils.clamp(pointer.target.z, -0.6, 0.6);
+            const travel = swim.position.distanceTo(pointer.target);
+            if (travel > 0.001) {
+              swim.position.lerp(pointer.target, Math.min(1, 1.5 * delta / travel));
+            }
+          }
+          pointer.returnTime = 0.65;
+          pointer.returnPosition.copy(swim.position);
+          pointer.returnRotation.copy(swim.quaternion);
+          return;
+        }
+      }
+
+      this.updateSharkPatrol(delta, elapsedTime);
+      if (pointer.returnTime > 0) {
+        pointer.returnTime = Math.max(0, pointer.returnTime - delta);
+        const remaining = pointer.returnTime / 0.65;
+        const weight = remaining * remaining * (3 - 2 * remaining);
+        swim.position.lerp(pointer.returnPosition, weight);
+        swim.quaternion.slerp(pointer.returnRotation, weight);
+      }
+    }
+
     updateSharkPatrol(delta, elapsedTime) {
       if (!this.sharkSwimGroup) return;
 
@@ -1004,7 +1084,8 @@
       var scaledCenter = scaledBox.getCenter(new THREE.Vector3());
       this.sharkModel.position.set(-scaledCenter.x, -scaledCenter.y, -scaledCenter.z);
 
-      this.sharkSwimGroup.add(this.sharkModel);
+      this.sharkModel.scale.multiplyScalar(0.75);
+    this.sharkSwimGroup.add(this.sharkModel);
 
       // 4. Kích hoạt animation 'Swimming' liên tục (quẫy đuôi tuần hoàn theo nhịp bơi nhanh hơn)
       if (gltf.animations && gltf.animations.length > 0) {
@@ -1340,6 +1421,34 @@
       window.addEventListener('resize', function () {
         self.handleResize();
       }, false);
+      const hero = document.getElementById('hero');
+      if (hero && !this.reducedMotion) {
+        const pointer = this.sharkPointer = {
+          hero,
+          x: 0,
+          y: 0,
+          lastMovedAt: -Infinity,
+          yaw: 0,
+          returnTime: 0,
+          ndc: new THREE.Vector2(),
+          ray: new THREE.Raycaster(),
+          plane: new THREE.Plane(),
+          target: new THREE.Vector3(),
+          returnPosition: new THREE.Vector3(),
+          returnRotation: new THREE.Quaternion()
+        };
+
+        window.addEventListener('pointermove', function (event) {
+          if (event.pointerType !== 'mouse') return;
+          pointer.x = event.clientX;
+          pointer.y = event.clientY;
+          pointer.lastMovedAt = performance.now();
+        }, { passive: true, capture: true });
+
+        window.addEventListener('blur', function () {
+          pointer.lastMovedAt = -Infinity;
+        });
+      }
 
       // Tương tác chuột khuấy động gợn sóng nước mềm mại
       window.addEventListener('mousemove', function (e) {
@@ -1389,7 +1498,7 @@
 
       // 2. Cập nhật chuyển động tự bơi qua lại & rẽ quay đầu của nhóm con sharkSwimGroup
       if (!this.reducedMotion) {
-        this.updateSharkPatrol(delta, elapsedTime);
+        this.updateSharkMovement(delta, elapsedTime);
       }
 
       // 3. Cập nhật bụi nước lơ lửng & thời gian cho mặt nước
@@ -1448,8 +1557,16 @@
 
       // 5. Render toàn cảnh chính với camera người xem
       if (this.renderer && this.scene && this.camera) {
-        this.renderer.render(this.scene, this.camera);
-      }
+  if (this.waterSurfaceMesh) this.waterSurfaceMesh.visible = false;
+  if (this.seabedMesh) this.seabedMesh.visible = false;
+  if (this.sunbeams) this.sunbeams.visible = false;
+
+  this.rockMeshes.forEach(function (rock) {
+    rock.visible = false;
+  });
+
+  this.renderer.render(this.scene, this.camera);
+}
     }
   }
 

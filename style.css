@@ -1069,3 +1069,6 @@ body {
     scroll-behavior: auto !important;
   }
 }
+.ambient-backdrop {
+  background: #031826 url("./ocean-background.png") center center / cover no-repeat;
+}
